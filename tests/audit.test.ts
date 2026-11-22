@@ -103,6 +103,6 @@ describe('renderHtml', () => {
   it('lists findings with their rule id and fix', () => {
     const html = renderHtml(audit(naive()));
     expect(html).toContain('token-storm');
-    expect(html).toContain('<b>Fix</b>');
+    expect(html).toContain('<b>Fix →</b>');
   });
 });
