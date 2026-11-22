@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:,">
+<title>livesay — naive streaming</title>
+<link rel="stylesheet" href="/demo/demo.css">
+<script src="/dist/probe/runtime.bundle.js"></script>
+</head>
+<body data-mode="bad" data-done="false" data-state="idle">
+  <header class="top">
+    <a class="brand" href="/">livesay</a>
+    <span>demo · naive streaming</span>
+    <span class="spacer"></span>
+    <a href="/good.html">the fixed version →</a>
+  </header>
+
+  <main class="stage">
+    <div class="chat">
+      <div class="msg msg--user">
+        <p>What does a streamed answer do to a screen reader?</p>
+      </div>
+      <div class="msg msg--assistant">
+        <div class="bubble" id="bubble">
+          <p class="answer" id="answer" aria-live="polite"></p>
+          <p class="status" id="status" role="status">Thinking…</p>
+        </div>
+      </div>
+      <div class="msg msg--assistant" aria-live="assertive" id="toast-slot">
+        <p class="status" id="toast" aria-live="assertive"></p>
+      </div>
+    </div>
+
+    <div class="controls">
+      <button id="run" type="button">Stream again</button>
+      <button id="fail" type="button" class="ghost">Simulate an error</button>
+    </div>
+  </main>
+
+  <aside class="notes">
+    <h2>What this page does</h2>
+    <ul>
+      <li>Writes every token straight into <code>aria-live="polite"</code>, so each word is a speech event.</li>
+      <li>Puts tool status in an assertive region, cutting off whatever was being read.</li>
+      <li>Never says the answer is finished. <code>role="status"</code> stays on “Thinking…”.</li>
+      <li>On failure it just stops: no announcement, no error, no cue.</li>
+    </ul>
+    <p>This is what a default streaming chat UI looks like to a listener. Audit it:</p>
+    <div class="cmd">npx livesay audit http://127.0.0.1:4319/bad.html --budget "announcements&lt;8,no-silent"</div>
+  </aside>
+
+  <script type="module" src="/demo/bad.js"></script>
+</body>
+</html>

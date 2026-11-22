@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:,">
+<title>livesay — corrected streaming</title>
+<link rel="stylesheet" href="/demo/demo.css">
+<script src="/dist/probe/runtime.bundle.js"></script>
+<script src="/dist/browser/livesay.js"></script>
+</head>
+<body data-mode="good" data-done="false">
+  <header class="top">
+    <a class="brand" href="/">livesay</a>
+    <span>demo · corrected streaming</span>
+    <span class="spacer"></span>
+    <a href="/bad.html">← the naive version</a>
+  </header>
+
+  <main class="stage">
+    <div class="chat">
+      <div class="msg msg--user">
+        <p>What does a streamed answer do to a screen reader?</p>
+      </div>
+      <div class="msg msg--assistant">
+        <div class="bubble" id="bubble">
+          <article id="answer" class="answer" aria-busy="true" aria-label="Answer"></article>
+          <p class="status" id="status"></p>
+        </div>
+      </div>
+    </div>
+
+    <div class="controls">
+      <button id="run" type="button">Stream again</button>
+      <button id="fail" type="button" class="ghost">Simulate an error</button>
+    </div>
+  </main>
+
+  <aside class="notes">
+    <h2>What this page does instead</h2>
+    <ul>
+      <li>The answer text is <em>not</em> a live region; it is <code>aria-busy="true"</code> while it streams.</li>
+      <li>The first two sentences are announced once, 600ms apart, through <code>ariaNotify()</code> when the browser has it and a hidden polite region when it does not. After that the page stays quiet — speech cannot keep up with tokens.</li>
+      <li>Tool status is a single polite message, then silence.</li>
+      <li>The end of the stream is announced: “Answer complete. 88 words.”</li>
+      <li>An error is announced once, assertively, then stops.</li>
+    </ul>
+    <p>Audit it with a speech budget:</p>
+    <div class="cmd">npx livesay audit http://127.0.0.1:4319/good.html --budget "announcements&lt;8,no-partial,no-duplicate,no-silent"</div>
+  </aside>
+
+  <script type="module" src="/demo/good.js"></script>
+</body>
+</html>

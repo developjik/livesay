@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:,">
+<title>livesay — what does your streamed answer say to a screen reader?</title>
+<link rel="stylesheet" href="/demo/demo.css">
+<script src="/dist/browser/livesay.js"></script>
+</head>
+<body>
+  <header class="top">
+    <a class="brand" href="/">livesay</a>
+    <span>demo</span>
+    <span class="spacer"></span>
+    <a href="https://github.com/developjik/livesay">github</a>
+  </header>
+
+  <section class="hero">
+    <p class="eyebrow">accessibility × streaming</p>
+    <h1>Your server counts tokens. <em>livesay counts ears.</em></h1>
+    <p class="lede">
+      A screen reader turns DOM updates into speech. Stream an answer token by token and the listener hears a stutter
+      that never finishes. livesay records what the page announces, simulates what a screen reader would say, and tells
+      you in numbers — announcements, partials, duplicates, silence — before your users do.
+    </p>
+    <div class="cmd" style="font:12px/1.6 var(--mono);color:#b9bfc9">
+      <div>npx playwright install chromium</div>
+      <div>npx livesay audit http://127.0.0.1:4319/bad.html --html report.html</div>
+    </div>
+  </section>
+
+  <section class="cards">
+    <article class="card bad">
+      <h2>Naive streaming</h2>
+      <p class="hint">What most chat UIs ship: the answer body is a live region.</p>
+      <ul>
+        <li>one announcement per token</li>
+        <li>tool status on assertive, cutting speech off</li>
+        <li>no completion announcement</li>
+        <li>errors that say nothing</li>
+      </ul>
+      <div class="cmd">livesay audit .../bad.html</div>
+      <a class="run" href="/bad.html">Open the naive demo →</a>
+    </article>
+
+    <article class="card good">
+      <h2>With the announcer</h2>
+      <p class="hint">The same stream: no live region on the body, a completion signal, one assertive error.</p>
+      <ul>
+        <li><code>aria-busy</code> on the answer body, no live region</li>
+        <li>the opening sentences announced, then quiet</li>
+        <li>“Answer complete. 88 words.”</li>
+        <li>one assertive message for a real error</li>
+      </ul>
+      <div class="cmd">livesay audit .../good.html --budget "announcements&lt;8"</div>
+      <a class="run" href="/good.html">Open the corrected demo →</a>
+    </article>
+  </section>
+
+  <section class="compare">
+    <div class="bar">
+      <button id="run-both" type="button">Measure both</button>
+      <span class="hint" style="color:var(--muted);font-size:13px">Runs each demo with the probe and counts what a listener would hear (nvda-like profile).</span>
+    </div>
+    <div class="frames">
+      <div class="frame">
+        <div class="head"><span>naive</span><span class="score" id="score-bad">—</span></div>
+        <iframe id="frame-bad" title="Naive streaming demo" loading="lazy"></iframe>
+      </div>
+      <div class="frame">
+        <div class="head"><span>livesay</span><span class="score" id="score-good">—</span></div>
+        <iframe id="frame-good" title="Corrected streaming demo" loading="lazy"></iframe>
+      </div>
+    </div>
+  </section>
+
+  <footer class="foot">
+    <div>Announcements are simulated, not measured from a real AT. The report says so, every time.</div>
+    <div style="margin-top:6px">Rules: token-storm · silent-completion · silent-abort · assertive-abuse · duplicate · partial</div>
+    <div style="margin-top:6px">Run <code>npx livesay serve</code> locally, then <code>npx livesay audit &lt;url&gt;</code>.</div>
+  </footer>
+
+  <script type="module" src="/demo/index.js"></script>
+</body>
+</html>

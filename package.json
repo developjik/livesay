@@ -1,0 +1,92 @@
+{
+  "name": "livesay",
+  "version": "0.1.0",
+  "description": "Measure what your streaming AI answer actually says to a screen reader — announcements, partials, duplicates, silence — and fix it with a tiny announcer.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/developjik/livesay.git"
+  },
+  "homepage": "https://github.com/developjik/livesay#readme",
+  "bugs": {
+    "url": "https://github.com/developjik/livesay/issues"
+  },
+  "author": "jungingwon (developjik)",
+  "keywords": [
+    "accessibility",
+    "a11y",
+    "screen-reader",
+    "aria-live",
+    "arianotify",
+    "streaming",
+    "llm",
+    "playwright",
+    "audit",
+    "ci"
+  ],
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "engines": {
+    "node": ">=20"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./react": {
+      "types": "./dist/announcer/react.d.ts",
+      "import": "./dist/announcer/react.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "bin": {
+    "livesay": "./dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "demo",
+    "README.md",
+    "README.ko.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "node scripts/build-bundles.mjs && tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:unit": "vitest run",
+    "test:e2e": "npm run build && playwright test",
+    "test:all": "npm run typecheck && npm run test:unit && npm run test:e2e",
+    "demo": "npm run build && node dist/cli.js demo",
+    "audit:demo": "npm run build && node dist/cli.js serve --port 4319 & sleep 1 && node dist/cli.js audit http://127.0.0.1:4319/bad.html; kill %1",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "playwright": "^1.65.0"
+  },
+  "peerDependencies": {
+    "@playwright/test": ">=1.45.0",
+    "react": ">=18"
+  },
+  "peerDependenciesMeta": {
+    "@playwright/test": {
+      "optional": true
+    },
+    "react": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@playwright/test": "1.65.0",
+    "@types/node": "^22.18.0",
+    "@types/react": "^19.3.0",
+    "esbuild": "^0.25.11",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.7"
+  }
+}

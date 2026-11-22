@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>livesay — probe fixture</title>
+<script src="/dist/probe/runtime.bundle.js"></script>
+</head>
+<body>
+  <main>
+    <p id="polite" aria-live="polite"></p>
+    <p id="alert" role="alert"></p>
+    <p id="log" role="log" aria-relevant="additions"></p>
+    <output id="out"></output>
+    <div id="hidden-idle" aria-live="off"></div>
+    <div id="busy" role="status" aria-busy="true"></div>
+  </main>
+
+  <script>
+    // A page-provided ariaNotify polyfill: the probe installs first and must wrap
+    // whatever the page assigns afterwards.
+    window.__polyfillCalls = [];
+    window.ariaNotify = function ariaNotify(message, options) {
+      window.__polyfillCalls.push({ message: String(message), priority: options?.priority ?? 'normal' });
+    };
+
+    const polite = document.getElementById('polite');
+    const alert = document.getElementById('alert');
+    const log = document.getElementById('log');
+    const out = document.getElementById('out');
+    const idle = document.getElementById('hidden-idle');
+    const busy = document.getElementById('busy');
+    const probe = window.__livesayProbe;
+
+    const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+    (async () => {
+      probe.mark('start');
+      polite.textContent = 'Hello';
+      await wait(30);
+      polite.textContent = 'Hello world';
+      await wait(30);
+      alert.textContent = 'Request failed';
+      await wait(30);
+      log.append('first line');
+      await wait(30);
+      out.textContent = 'Saved';
+      await wait(30);
+      idle.textContent = 'not announced';
+      await wait(30);
+      busy.textContent = 'deferred while busy';
+      await wait(30);
+      window.ariaNotify('Polite notification');
+      await wait(30);
+      window.ariaNotify('Urgent notification', { priority: 'high' });
+      await wait(30);
+      probe.mark('done');
+      document.title = 'fixture ready';
+    })();
+  </script>
+</body>
+</html>
