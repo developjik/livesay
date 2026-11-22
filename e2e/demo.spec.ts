@@ -78,6 +78,18 @@ test('the corrected page announces a bounded set of messages and a completion', 
   expect(after.some((event) => /complete/i.test(event.text ?? ''))).toBe(true);
 });
 
+test('the landing page measures both demos side by side', async ({ page }) => {
+  await page.goto(`${demo.url}/`);
+  await page.click('#run-both');
+  await expect(page.locator('#score-bad')).toContainText('announcements', { timeout: 40_000 });
+  await expect(page.locator('#score-good')).toContainText('announcements', { timeout: 40_000 });
+
+  const naive = await page.textContent('#score-bad');
+  const fixed = await page.textContent('#score-good');
+  expect(naive).toMatch(/completion no/);
+  expect(fixed).toMatch(/completion yes/);
+});
+
 test('the naive page fails silently when the stream errors', async ({ page }) => {
   await page.addInitScript({ path: 'dist/probe/runtime.bundle.js' });
   await page.goto(`${demo.url}/bad.html`);

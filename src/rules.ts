@@ -334,6 +334,18 @@ export function findSilentAbort(snapshot: ProbeSnapshot, options: ResolvedRuleOp
   return findings;
 }
 
+/**
+ * One boolean for a UI badge: did every finished answer signal its end?
+ * `null` when the recording has no completion mark to judge.
+ */
+export function hasCompletionSignal(snapshot: ProbeSnapshot): boolean | null {
+  const answered = snapshot.answers.filter((answer) => answer.outcome === 'done' && answer.endedAt !== null);
+  if (answered.length === 0) return null;
+  return answered.every(
+    (answer) => findSilentCompletion({ ...snapshot, answers: [answer] }, DEFAULT_RULE_OPTIONS).length === 0,
+  );
+}
+
 /** Assertive announcements are interrupts: more than one per answer fights the listener. */
 export function findAssertiveAbuse(simulation: Simulation, options: ResolvedRuleOptions): Finding[] {
   const findings: Finding[] = [];

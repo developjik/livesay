@@ -21,15 +21,13 @@ async function measure(frame, timeoutMs) {
       const snapshot = probe.snapshot();
       const ended = snapshot.answers.some((answer) => answer.outcome !== 'running');
       if (ended) {
-        const simulation = win.Livesay.simulate(snapshot, 'nvda-like');
-        const last = snapshot.answers[snapshot.answers.length - 1];
-        const completion = simulation.utterances.some(
-          (utterance) => last && last.endedAt !== null && utterance.t >= last.endedAt,
-        );
+        // Both helpers come from the parent page's bundle: the naive demo does
+        // not load it, and one implementation keeps the badge honest.
+        const simulation = window.Livesay.simulate(snapshot, 'nvda-like');
         return {
           announcements: simulation.utterances.length,
           updates: countUpdates(snapshot),
-          completion,
+          completion: window.Livesay.hasCompletionSignal(snapshot) === true,
         };
       }
     }

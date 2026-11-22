@@ -29,6 +29,7 @@ export {
   findSilentAbort,
   findSilentCompletion,
   findTokenStorm,
+  hasCompletionSignal,
   peakInWindow,
   type Finding,
   type Metrics,

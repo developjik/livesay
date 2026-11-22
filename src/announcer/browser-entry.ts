@@ -10,3 +10,4 @@ export { takeCompleteSentences, splitAtBoundary } from './sentences.js';
 export { simulate, PROFILES, PROFILE_NAMES } from '../simulate.js';
 export { countWords } from '../text.js';
 export { markAnswer } from '../probe/mark.js';
+export { hasCompletionSignal } from '../rules.js';
