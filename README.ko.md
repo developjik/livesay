@@ -37,7 +37,7 @@ error  Answer ended without a completion announcement [silent-completion]
 | 완료 알림 | **없음** | **있음** |
 | 진단 결과 | 오류 3건 | 없음 |
 
-두 페이지 모두 이 저장소에 들어 있고(`demo/bad.html`, `demo/good.html`) 테스트가 매번 같은 방식으로 감사하므로, 위 숫자는 CI에서 재현됩니다.
+두 페이지 모두 이 저장소에 있고(`demo/bad.html`, `demo/good.html`), 이 숫자 뒤의 동작(토큰 폭주, 제한된 발화 수, 완료 신호 없음)을 CI에서 매번 검증합니다.
 
 ## 1분 만에 해보기
 

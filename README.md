@@ -42,8 +42,9 @@ The same 78-word answer, streamed at the same speed, read by the same simulated 
 | completion announced | **no** | **yes** |
 | findings | 3 errors | none |
 
-Both pages ship in this repo (`demo/bad.html`, `demo/good.html`) and both are audited by the test
-suite, so the numbers above are reproduced on every CI run.
+Both pages ship in this repo (`demo/bad.html`, `demo/good.html`), and the behaviour behind these
+numbers — a token storm, a bounded announcement set, a missing completion signal — is asserted on
+every CI run.
 
 ## Try it in a minute
 
