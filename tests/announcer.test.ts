@@ -142,6 +142,74 @@ describe('createStreamingAnnouncer', () => {
     expect(calls.at(-1)?.text).toBe('A brand new answer starts.');
   });
 
+  it('announces an abort exactly once even when abort is repeated', () => {
+    const { announcer, calls } = makeAnnouncer();
+    announcer.push('Partial answer text. ');
+    announcer.abort();
+    announcer.abort('again');
+    expect(calls.filter((call) => call.text.startsWith('Answer stopped'))).toHaveLength(1);
+    expect(announcer.state.phase).toBe('aborted');
+  });
+
+  it('announces an error exactly once even when error is repeated', () => {
+    const { announcer, calls } = makeAnnouncer();
+    announcer.error('first failure');
+    announcer.error('second failure');
+    expect(calls.filter((call) => call.text.startsWith('Answer failed'))).toHaveLength(1);
+    expect(calls.at(-1)?.text).toBe('Answer failed: first failure.');
+  });
+
+  it('never announces a bogus completion after abort or error', () => {
+    const { announcer, calls } = makeAnnouncer();
+    announcer.push('Some streamed words. ');
+    announcer.abort();
+    announcer.done();
+    expect(calls.some((call) => call.text.includes('Answer complete'))).toBe(false);
+
+    const second = makeAnnouncer();
+    second.announcer.push('Some streamed words. ');
+    second.announcer.error('boom');
+    second.announcer.done();
+    expect(second.calls.some((call) => call.text.includes('Answer complete'))).toBe(false);
+  });
+
+  it('lets only the first ending through: abort wins over error, done wins over abort', () => {
+    const { announcer, calls } = makeAnnouncer();
+    announcer.abort();
+    announcer.error('late failure');
+    expect(calls.map((call) => call.text)).toEqual(['Answer stopped.']);
+
+    const second = makeAnnouncer();
+    second.announcer.push('Finished sentence. ');
+    second.announcer.done();
+    const afterDone = second.calls.length;
+    second.announcer.abort();
+    second.announcer.error('late failure');
+    expect(second.calls).toHaveLength(afterDone);
+  });
+
+  it('stays quiet for status and push after the end', () => {
+    const { announcer, calls } = makeAnnouncer();
+    announcer.push('Some streamed words. ');
+    announcer.done();
+    const afterDone = calls.length;
+    announcer.status('still typing…');
+    announcer.push('late token. ');
+    expect(calls).toHaveLength(afterDone);
+  });
+
+  it('runs a new answer normally after an explicit reset', () => {
+    const { announcer, calls } = makeAnnouncer();
+    announcer.push('First answer words. ');
+    announcer.abort();
+    announcer.reset();
+    expect(announcer.state.phase).toBe('idle');
+    announcer.push('Second answer words. ');
+    announcer.done();
+    expect(calls.at(-1)?.text).toContain('Answer complete.');
+    expect(announcer.state.phase).toBe('done');
+  });
+
   it('reports its mechanism from the sink', () => {
     const announcer = createStreamingAnnouncer({
       sink: createMemorySink(),

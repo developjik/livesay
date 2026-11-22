@@ -8,6 +8,11 @@
  *   2. spaces announcements out, so the listener is not talked over
  *   3. announces completion, abort and error exactly once
  *
+ * Endings are terminal: the first of `done()`/`abort()`/`error()` wins, later
+ * calls are no-ops (an abort followed by `done()` must not announce a bogus
+ * completion), and `status()` goes quiet too. A new answer may only start
+ * after an explicit `reset()`.
+ *
  * It uses `ariaNotify()` where available and a live region where not, through a
  * sink you can replace in tests.
  */
@@ -17,6 +22,9 @@ import { splitAtBoundary, takeCompleteSentences } from './sentences.js';
 import { countWords } from '../text.js';
 
 export type AnnouncerPhase = 'idle' | 'streaming' | 'done' | 'aborted' | 'error';
+
+/** Phases an answer never leaves except through `reset()`. */
+const TERMINAL: ReadonlySet<AnnouncerPhase> = new Set(['done', 'aborted', 'error']);
 
 export interface AnnouncerState {
   phase: AnnouncerPhase;
@@ -177,7 +185,7 @@ export function createStreamingAnnouncer(options: StreamingAnnouncerOptions = {}
 
     push(delta: string): void {
       if (disposed || !delta) return;
-      if (phase === 'done' || phase === 'aborted' || phase === 'error') return;
+      if (TERMINAL.has(phase)) return;
       phase = 'streaming';
       buffer += delta;
       streamed += delta;
@@ -198,8 +206,7 @@ export function createStreamingAnnouncer(options: StreamingAnnouncerOptions = {}
     },
 
     done(): void {
-      if (disposed || phase === 'done') return;
-      const wasEmpty = phase === 'idle';
+      if (disposed || TERMINAL.has(phase)) return;
       phase = 'done';
       cancelTimer();
 
@@ -215,11 +222,10 @@ export function createStreamingAnnouncer(options: StreamingAnnouncerOptions = {}
       // dropped, and the completion is the one message that must arrive.
       const completion = completionText({ words: countWords(streamed) || contentWords });
       speak(rest ? `${rest} ${completion}` : completion, 'normal', false);
-      void wasEmpty;
     },
 
     abort(reason?: string): void {
-      if (disposed) return;
+      if (disposed || TERMINAL.has(phase)) return;
       phase = 'aborted';
       cancelTimer();
       buffer = '';
@@ -229,7 +235,7 @@ export function createStreamingAnnouncer(options: StreamingAnnouncerOptions = {}
     },
 
     error(message: string): void {
-      if (disposed) return;
+      if (disposed || TERMINAL.has(phase)) return;
       phase = 'error';
       cancelTimer();
       buffer = '';
@@ -239,7 +245,7 @@ export function createStreamingAnnouncer(options: StreamingAnnouncerOptions = {}
     },
 
     status(text: string): void {
-      if (disposed) return;
+      if (disposed || TERMINAL.has(phase)) return;
       const trimmed = text.trim();
       if (!trimmed) return;
       const at = now();

@@ -155,6 +155,8 @@ What it does, and refuses to do:
 - **spacing** — `minIntervalMs` between polite announcements
 - **a completion message** — one call, not two, because two rapid announcements get coalesced or dropped
 - **assertive only for errors** — `error()` and `abort()` interrupt, status does not
+- **one ending, ever** — the first of `done()`/`abort()`/`error()` wins; a `done()` after an abort
+  cannot announce a bogus completion, and a new answer starts only after `reset()`
 - **`ariaNotify()` where it exists, a hidden live region where it does not** — the same interface, and
   feature detection stays honest: the probe never pretends `ariaNotify` exists in a browser that lacks it
 - **a cap** — `maxAnnouncements` stops the page from narrating 78 words in 3.5 seconds

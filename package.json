@@ -1,6 +1,6 @@
 {
   "name": "livesay",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Measure what your streaming AI answer actually says to a screen reader — announcements, partials, duplicates, silence — and fix it with a tiny announcer.",
   "repository": {
     "type": "git",
