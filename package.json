@@ -1,7 +1,7 @@
 {
   "name": "livesay",
   "version": "0.1.0",
-  "description": "Measure what your streaming AI answer actually says to a screen reader \u2014 announcements, partials, duplicates, silence \u2014 and fix it with a tiny announcer.",
+  "description": "Measure what your streaming AI answer actually says to a screen reader — announcements, partials, duplicates, silence — and fix it with a tiny announcer.",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/developjik/livesay.git"
@@ -60,7 +60,8 @@
     "test:e2e": "npm run build && playwright test",
     "test:all": "npm run typecheck && npm run test:unit && npm run test:e2e",
     "demo": "npm run build && node dist/cli.js demo",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "npm run build",
+    "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
     "playwright": "1.65.0"
@@ -81,6 +82,7 @@
     "@playwright/test": "1.65.0",
     "@types/node": "^22.18.0",
     "@types/react": "^19.3.0",
+    "@vitest/coverage-v8": "^3.2.7",
     "esbuild": "^0.25.11",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
