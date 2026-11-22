@@ -9,6 +9,8 @@ const ANSWER = [
   'That silence is the bug users report most often.',
 ].join(' ');
 
+if (new URLSearchParams(location.search).has('embed')) document.body.dataset.embed = '';
+
 const probe = window.__livesayProbe;
 const mark = (phase, detail) => (window.Livesay?.markAnswer ?? ((p, d) => probe?.mark(p, d)))(phase, detail);
 const answerEl = document.getElementById('answer');

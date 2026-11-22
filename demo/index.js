@@ -50,8 +50,8 @@ async function run() {
   runBoth.disabled = true;
   scoreBad.textContent = 'running…';
   scoreGood.textContent = 'running…';
-  frameBad.src = '/bad.html';
-  frameGood.src = '/good.html';
+  frameBad.src = '/bad.html?embed=1';
+  frameGood.src = '/good.html?embed=1';
 
   const [bad, good] = await Promise.all([measure(frameBad, 25_000), measure(frameGood, 25_000)]);
   render(scoreBad, bad, 'bad');

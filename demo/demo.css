@@ -122,6 +122,12 @@ button:disabled { opacity: .5; cursor: default; }
 .notes li { margin: 6px 0; }
 .notes code { font: 12px/1 var(--mono); background: #14171d; border: 1px solid var(--line); padding: 2px 5px; border-radius: 3px; }
 
+.stage { padding-top: 48px; }
+body[data-embed] .top { display: none; }
+body[data-embed] .stage { padding: 26px 20px 18px; }
+body[data-embed] .notes { display: none; }
+body[data-embed] .controls { margin-top: 18px; }
+
 /* ---- index ---- */
 
 .hero { max-width: 980px; margin: 0 auto; padding: 64px 24px 0; }
