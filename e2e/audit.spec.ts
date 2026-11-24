@@ -135,12 +135,14 @@ test('drains large all-profile JSON to a pipe before exiting', async () => {
     expect(result.code, result.stderr).toBe(1);
     expect(result.stdout.length).toBeGreaterThan(64 * 1024);
     expect(JSON.parse(result.stdout).reports).toHaveLength(3);
-    const closedPipeCode = await new Promise<number|null>(resolve => {
+    const closedPipe = await new Promise<{code:number|null;stderr:string}>(resolve => {
       const child = spawn(process.execPath, args, { stdio:['ignore','pipe','pipe'] });
-      child.stderr.resume();
+      let stderr = '';
+      child.stderr.on('data', chunk => { stderr += String(chunk); });
       child.stdout.once('data', () => child.stdout.destroy());
-      child.once('close', resolve);
+      child.once('close', code => resolve({code,stderr}));
     });
-    expect(closedPipeCode).toBe(1);
+    expect(closedPipe.code, closedPipe.stderr).toBe(1);
+    expect(closedPipe.stderr).not.toMatch(/Unhandled|EPIPE|node:events/);
   } finally { await new Promise<void>(resolve => server.close(() => resolve())); }
 });
