@@ -39,7 +39,8 @@ const wireOptions = (report: AuditReport): string => {
   const options = { ...report.options } as Record<string, unknown>;
   for (const key of ['completionPattern', 'abortPattern'] as const) {
     const pattern = report.options[key];
-    options[key] = report.rulePatterns?.[key] ?? (pattern instanceof RegExp ? { source: pattern.source, flags: pattern.flags } : { source: DEFAULT_RULE_OPTIONS[key].source, flags: DEFAULT_RULE_OPTIONS[key].flags });
+    const effective = report.rulePatterns?.[key] ?? (pattern instanceof RegExp ? pattern : DEFAULT_RULE_OPTIONS[key]);
+    options[key] = { source: effective.source, flags: effective.flags };
   }
   return JSON.stringify(Object.fromEntries(Object.entries(options).sort(([a], [b]) => a.localeCompare(b))));
 };
