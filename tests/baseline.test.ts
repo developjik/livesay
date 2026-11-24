@@ -88,3 +88,10 @@ it('does not coerce finding enums or accept inconsistent budget results', () => 
   expect(() => readAuditReports({ ...valid, budget: { spec: 'no-errors', passed: false, checks: [] } })).toThrow();
   expect(() => readAuditReports({ ...valid, budget: { spec: 'no-errors', passed: false, checks: [{ expectation: 'no-errors', ok: true }] } })).toThrow();
 });
+
+it('matches custom patterns after recursive JSON key sorting', () => {
+  const before = audit(snapshot({ events: [] }), { rules: { completionPattern: /custom/i } });
+  const saved = JSON.parse(renderJson(before));
+  saved.rulePatterns.completionPattern = { flags: 'i', source: 'custom' };
+  expect(compareReports(readAuditReports(saved)[0]!, before).added).toHaveLength(0);
+});
