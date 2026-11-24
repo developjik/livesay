@@ -67,6 +67,8 @@ export interface AuditReport {
   verdict: Verdict;
   /** Present only when a baseline was explicitly supplied. */
   baseline?: BaselineComparison;
+  /** Persist custom patterns since native RegExp JSON is empty. */
+  rulePatterns?: { completionPattern: { source: string; flags: string }; abortPattern: { source: string; flags: string } };
 }
 
 const nowIso = (): string => new Date().toISOString();
@@ -128,6 +130,7 @@ export function audit(snapshot: ProbeSnapshot, options: AuditOptions = {}): Audi
     profile,
     profileTagline: PROFILES[profile].tagline,
     options: rules,
+    ...(options.rules?.completionPattern || options.rules?.abortPattern ? { rulePatterns: { completionPattern: { source: rules.completionPattern.source, flags: rules.completionPattern.flags }, abortPattern: { source: rules.abortPattern.source, flags: rules.abortPattern.flags } } } : {}),
     metrics,
     answers: summariseAnswers(snapshot, simulation, rules),
     findings,
