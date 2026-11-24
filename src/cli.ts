@@ -172,12 +172,14 @@ async function runAudit(argv: string[]): Promise<void> {
   }
 
   if (!values.quiet) {
-    (jsonStdout ? process.stderr : process.stdout).write(`${renderConsole(primary, { color: colorEnabled() })}\n`);
+    for (const { report } of reports) {
+      (jsonStdout ? process.stderr : process.stdout).write(`${renderConsole(report, { color: colorEnabled() })}\n`);
+    }
   }
 
   const selectedReports = reports.map(entry => entry.report);
-  const json = profile === 'all' ? renderReportsJson(selectedReports) : renderJson(primary);
-  const html = profile === 'all' ? renderReportsHtml(selectedReports) : renderHtml(primary);
+  const json = values.json || values.out ? (profile === 'all' ? renderReportsJson(selectedReports) : renderJson(primary)) : '';
+  const html = values.html || values.out ? (profile === 'all' ? renderReportsHtml(selectedReports) : renderHtml(primary)) : '';
 
   if (values.json) {
     if (values.json === '-') process.stdout.write(json);
@@ -196,7 +198,8 @@ async function runAudit(argv: string[]): Promise<void> {
 
   const failed = reportsFailed(selectedReports, values.strict);
 
-  process.exit(failed ? 1 : 0);
+  // Let pending stdout/stderr writes drain, especially large piped JSON.
+  process.exitCode = failed ? 1 : 0;
 }
 
 async function runServe(argv: string[]): Promise<void> {
