@@ -3,7 +3,7 @@ name: Deploy demo to GitHub Pages
 on:
   push:
     branches: [main]
-    paths: ["demo/**", "src/**", "scripts/**", "package*.json", ".github/workflows/deploy-demo.yml"]
+    paths: ["demo/**", "src/**", "scripts/**", "package*.json", "tsconfig*.json", ".github/workflows/deploy-demo.yml"]
   workflow_dispatch:
 
 permissions:
