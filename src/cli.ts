@@ -10,14 +10,15 @@
  *   livesay rules                    the rule table
  */
 
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, realpath, stat, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 
 import { audit, VERSION, type AuditReport } from './audit.js';
+import { baselineFailed, compareReports, readAuditReports } from './baseline.js';
 import { BudgetError } from './budget.js';
 import { capture } from './capture.js';
-import { renderConsole, renderHtml, renderJson, renderReportsHtml, renderReportsJson, reportsFailed } from './report.js';
+import { renderComparisonConsole, renderComparisonHtml, renderConsole, renderHtml, renderJson, renderReportsHtml, renderReportsJson, reportsFailed } from './report.js';
 import { startServer } from './server.js';
 import { PROFILES, PROFILE_NAMES, type ProfileName } from './simulate.js';
 
@@ -25,12 +26,14 @@ const HELP = `livesay ${VERSION} — what does your streamed answer say to a scr
 
 Usage
   livesay audit <url> [options]
+  livesay compare <before.json> <after.json> [--json [path|-]] [--html <path>] [--strict]
   livesay serve [--port <n>]     demo site (naive vs livesay)
   livesay rules                  rule table
   livesay --version
 
 Audit options
   --profile <name|all>   nvda-like (default) | voiceover-like | spec-strict | all
+  --baseline <path>      compare new violations against a matching audit report
   --budget <spec>        e.g. "announcements<8,words/min<180,no-partial"
   --json <path>          write the JSON report ("-" prints to stdout)
   --html <path>          write the HTML transcript
@@ -79,6 +82,22 @@ async function writeReportFile(path: string, contents: string): Promise<void> {
   process.stderr.write(`wrote ${target}\n`);
 }
 
+async function protectInputs(inputs: string[], outputs: Array<string | undefined>): Promise<void> {
+  for (const input of inputs) {
+    const inputStat = await stat(input);
+    const inputPath = await realpath(input);
+    for (const output of outputs) {
+      if (!output || output === '-') continue;
+      try {
+        const outputStat = await stat(output);
+        if (inputPath === await realpath(output) || (inputStat.dev === outputStat.dev && inputStat.ino === outputStat.ino)) fail('output must not overwrite an input report');
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+      }
+    }
+  }
+}
+
 function comparison(reports: Array<{ profile: ProfileName; report: AuditReport }>): string {
   const header = ['profile', 'announcements', 'words/min', 'updates/s', 'partial', 'dup', 'assertive', 'verdict'];
   const rows = reports.map(({ profile, report }) => [
@@ -104,6 +123,7 @@ async function runAudit(argv: string[]): Promise<void> {
     options: {
       profile: { type: 'string', default: 'nvda-like' },
       budget: { type: 'string' },
+      baseline: { type: 'string' },
       json: { type: 'string' },
       html: { type: 'string' },
       out: { type: 'string' },
@@ -130,6 +150,11 @@ async function runAudit(argv: string[]): Promise<void> {
   const graceMs = Number(values.grace);
   if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) fail('--timeout must be a positive number of milliseconds');
   if (!Number.isFinite(graceMs) || graceMs < 0) fail('--grace must be zero or more milliseconds');
+
+  if (values.baseline) await protectInputs([values.baseline], [values.json, values.html, values.out ? join(values.out, 'report.json') : undefined, values.out ? join(values.out, 'report.html') : undefined]);
+  const baselines = values.baseline ? readAuditReports(JSON.parse(await readFile(values.baseline, 'utf8'))) : undefined;
+  const selectedProfiles = profile === 'all' ? PROFILE_NAMES : [profile];
+  if (baselines && (baselines.length !== selectedProfiles.length || selectedProfiles.some(name => !baselines.some(report => report.profile === name)))) fail('baseline profile set must match --profile exactly');
 
   let captured;
   try {
@@ -162,6 +187,14 @@ async function runAudit(argv: string[]): Promise<void> {
       ...(values.budget ? { budget: values.budget } : {}),
     }),
   }));
+
+  if (baselines) {
+    for (const entry of reports) {
+      const before = baselines.find(report => report.profile === entry.profile);
+      if (!before) fail('missing baseline profile');
+      entry.report.baseline = compareReports(before, entry.report);
+    }
+  }
 
   const primary = reports[0]?.report;
   if (!primary) fail('audit produced no report');
@@ -200,6 +233,31 @@ async function runAudit(argv: string[]): Promise<void> {
 
   // Let pending stdout/stderr writes drain, especially large piped JSON.
   process.exitCode = failed ? 1 : 0;
+}
+
+async function runCompare(argv: string[]): Promise<void> {
+  // A bare --json is stdout; audit retains its historical path requirement.
+  const args = argv.flatMap((arg, index) => arg === '--json' && (!argv[index + 1] || argv[index + 1]?.startsWith('--')) ? [arg, '-'] : [arg]);
+  const { values, positionals } = parseArgs({ args, allowPositionals: true, options: {
+    json: { type: 'string' }, html: { type: 'string' }, strict: { type: 'boolean', default: false },
+  }});
+  if (positionals.length !== 2) fail('compare needs exactly two report paths');
+  await protectInputs(positionals, [values.json, values.html]);
+  const before = readAuditReports(JSON.parse(await readFile(positionals[0]!, 'utf8')));
+  const after = readAuditReports(JSON.parse(await readFile(positionals[1]!, 'utf8')));
+  if (before.length !== after.length || after.some(report => !before.some(old => old.profile === report.profile))) fail('baseline profile sets differ');
+  const comparisons = after.map(report => compareReports(before.find(old => old.profile === report.profile)!, report));
+  const json = JSON.stringify(comparisons.length === 1 ? comparisons[0] : { schema: 'livesay.baselines/v1', comparisons }, null, 2) + '\n';
+  if (values.json === '-') process.stdout.write(json);
+  else {
+    process.stdout.write(comparisons.map(renderComparisonConsole).join('\n\n') + '\n');
+    if (values.json) await writeReportFile(values.json, json);
+  }
+  if (values.html) {
+    if (comparisons.length === 1) await writeReportFile(values.html, renderComparisonHtml(comparisons[0]!));
+    else await writeReportFile(values.html, renderReportsHtml(after.map((report, index) => ({ ...report, baseline: comparisons[index] }))));
+  }
+  process.exitCode = comparisons.some(comparison => baselineFailed(comparison, values.strict)) ? 1 : 0;
 }
 
 async function runServe(argv: string[]): Promise<void> {
@@ -265,6 +323,9 @@ async function main(): Promise<void> {
   }
 
   switch (command) {
+    case 'compare':
+      await runCompare(rest);
+      return;
     case 'audit':
       await runAudit(rest);
       return;
