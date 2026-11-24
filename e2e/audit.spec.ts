@@ -123,13 +123,13 @@ test('drains large all-profile JSON to a pipe before exiting', async () => {
     const result = await new Promise<{code:number|null;stdout:string;stderr:string}>(resolve => {
       const child = spawn(process.execPath, args, { stdio:['ignore','pipe','pipe'] });
       let stdout = '', stderr = '';
-      // Keep the reader paused long enough for the large JSON write to block.
-      child.stdout.pause();
+      // Attach the reader before pausing: Node may resume pipes during child exit.
+      let delayed = false;
       child.stderr.on('data', chunk => { stderr += String(chunk); });
-      child.stdout.once('readable', () => setTimeout(() => {
-        child.stdout.on('data', chunk => { stdout += String(chunk); });
-        child.stdout.resume();
-      }, 300));
+      child.stdout.on('data', chunk => {
+        stdout += String(chunk);
+        if (!delayed) { delayed = true; child.stdout.pause(); setTimeout(() => child.stdout.resume(), 300); }
+      });
       child.once('close', code => resolve({code,stdout,stderr}));
     });
     expect(result.code, result.stderr).toBe(1);
