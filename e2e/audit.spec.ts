@@ -1,4 +1,6 @@
 import { mkdtemp, readFile } from 'node:fs/promises';
+import { createServer } from 'node:http';
+import { once } from 'node:events';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -105,4 +107,20 @@ test('keeps all profile JSON on stdout clean and HTML includes every report', as
   await expect(page.locator('iframe')).toHaveCount(3);
   await expect(page.frameLocator('iframe').nth(1).getByRole('heading', { name: /Utterance timeline/ })).toBeVisible();
   await page.screenshot({ path: '/tmp/livesay-all-profiles.png', fullPage: true });
+});
+
+test('drains large all-profile JSON to a pipe before exiting', async () => {
+  const server = createServer((_req, res) => {
+    res.setHeader('Content-Type', 'text/html');
+    res.end(`<div aria-live="polite" id="status"></div><script>setTimeout(async()=>{window.__livesayProbe?.mark('start');for(let i=0;i<150;i++){document.querySelector('#status').textContent='notice '+i+' '+('sample content '.repeat(30));await new Promise(r=>setTimeout(r,10));}window.__livesayProbe?.mark('done');},200);</script>`);
+  });
+  server.listen(0, '127.0.0.1');
+  await once(server, 'listening');
+  try {
+    const address = server.address() as { port: number };
+    const result = await runCli(['audit', `http://127.0.0.1:${address.port}`, '--profile', 'all', '--json', '-', '--quiet']);
+    expect(result.code, result.stderr).toBe(1);
+    expect(result.stdout.length).toBeGreaterThan(64 * 1024);
+    expect(JSON.parse(result.stdout).reports).toHaveLength(3);
+  } finally { await new Promise<void>(resolve => server.close(() => resolve())); }
 });
