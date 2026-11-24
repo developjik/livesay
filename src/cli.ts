@@ -18,7 +18,7 @@ import { audit, VERSION, type AuditReport } from './audit.js';
 import { baselineFailed, compareReports, readAuditReports } from './baseline.js';
 import { BudgetError } from './budget.js';
 import { capture } from './capture.js';
-import { renderComparisonConsole, renderComparisonHtml, renderConsole, renderHtml, renderJson, renderReportsHtml, renderReportsJson, reportsFailed } from './report.js';
+import { renderComparisonConsole, renderComparisonHtml, renderComparisonsHtml, renderConsole, renderHtml, renderJson, renderReportsHtml, renderReportsJson, reportsFailed } from './report.js';
 import { startServer } from './server.js';
 import { PROFILES, PROFILE_NAMES, type ProfileName } from './simulate.js';
 
@@ -87,10 +87,10 @@ async function protectInputs(inputs: string[], outputs: Array<string | undefined
     const inputStat = await stat(input);
     const inputPath = await realpath(input);
     for (const output of outputs) {
-      if (!output || output === '-') continue;
+      if (!output) continue;
       try {
-        const outputStat = await stat(output);
-        if (inputPath === await realpath(output) || (inputStat.dev === outputStat.dev && inputStat.ino === outputStat.ino)) fail('output must not overwrite an input report');
+        const outputStat = await stat(resolve(output));
+        if (inputPath === await realpath(resolve(output)) || (inputStat.dev === outputStat.dev && inputStat.ino === outputStat.ino)) fail('output must not overwrite an input report');
       } catch (error) {
         if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
       }
@@ -151,7 +151,7 @@ async function runAudit(argv: string[]): Promise<void> {
   if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) fail('--timeout must be a positive number of milliseconds');
   if (!Number.isFinite(graceMs) || graceMs < 0) fail('--grace must be zero or more milliseconds');
 
-  if (values.baseline) await protectInputs([values.baseline], [values.json, values.html, values.out ? join(values.out, 'report.json') : undefined, values.out ? join(values.out, 'report.html') : undefined]);
+  if (values.baseline) await protectInputs([values.baseline], [values.json === '-' ? undefined : values.json, values.html, values.out ? join(values.out, 'report.json') : undefined, values.out ? join(values.out, 'report.html') : undefined]);
   const baselines = values.baseline ? readAuditReports(JSON.parse(await readFile(values.baseline, 'utf8'))) : undefined;
   const selectedProfiles = profile === 'all' ? PROFILE_NAMES : [profile];
   if (baselines && (baselines.length !== selectedProfiles.length || selectedProfiles.some(name => !baselines.some(report => report.profile === name)))) fail('baseline profile set must match --profile exactly');
@@ -242,7 +242,7 @@ async function runCompare(argv: string[]): Promise<void> {
     json: { type: 'string' }, html: { type: 'string' }, strict: { type: 'boolean', default: false },
   }});
   if (positionals.length !== 2) fail('compare needs exactly two report paths');
-  await protectInputs(positionals, [values.json, values.html]);
+  await protectInputs(positionals, [values.json === '-' ? undefined : values.json, values.html]);
   const before = readAuditReports(JSON.parse(await readFile(positionals[0]!, 'utf8')));
   const after = readAuditReports(JSON.parse(await readFile(positionals[1]!, 'utf8')));
   if (before.length !== after.length || after.some(report => !before.some(old => old.profile === report.profile))) fail('baseline profile sets differ');
@@ -255,7 +255,7 @@ async function runCompare(argv: string[]): Promise<void> {
   }
   if (values.html) {
     if (comparisons.length === 1) await writeReportFile(values.html, renderComparisonHtml(comparisons[0]!));
-    else await writeReportFile(values.html, renderReportsHtml(after.map((report, index) => ({ ...report, baseline: comparisons[index] }))));
+    else await writeReportFile(values.html, renderComparisonsHtml(comparisons));
   }
   process.exitCode = comparisons.some(comparison => baselineFailed(comparison, values.strict)) ? 1 : 0;
 }
