@@ -277,3 +277,7 @@ npm run test:all      # all of it
 ## License
 
 MIT © jungingwon (developjik)
+
+### All-profile output
+
+`--profile all` fails when any selected profile has errors or a failed budget. `--strict` checks warnings in every profile. JSON output uses `{ "schema": "livesay.profiles/v1", "reports": [...] }` and HTML contains each profile in its own transcript frame. Single-profile output is unchanged. With `--json -`, stdout is only JSON and human summaries go to stderr; `--quiet` suppresses those summaries.
