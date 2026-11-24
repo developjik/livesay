@@ -1,6 +1,7 @@
 import { mkdtemp, readFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import { once } from 'node:events';
+import { spawn } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -118,9 +119,28 @@ test('drains large all-profile JSON to a pipe before exiting', async () => {
   await once(server, 'listening');
   try {
     const address = server.address() as { port: number };
-    const result = await runCli(['audit', `http://127.0.0.1:${address.port}`, '--profile', 'all', '--json', '-', '--quiet']);
+    const args = ['dist/cli.js', 'audit', `http://127.0.0.1:${address.port}`, '--profile', 'all', '--json', '-', '--quiet'];
+    const result = await new Promise<{code:number|null;stdout:string;stderr:string}>(resolve => {
+      const child = spawn(process.execPath, args, { stdio:['ignore','pipe','pipe'] });
+      let stdout = '', stderr = '';
+      // Keep the reader paused long enough for the large JSON write to block.
+      child.stdout.pause();
+      child.stderr.on('data', chunk => { stderr += String(chunk); });
+      child.stdout.once('readable', () => setTimeout(() => {
+        child.stdout.on('data', chunk => { stdout += String(chunk); });
+        child.stdout.resume();
+      }, 300));
+      child.once('close', code => resolve({code,stdout,stderr}));
+    });
     expect(result.code, result.stderr).toBe(1);
     expect(result.stdout.length).toBeGreaterThan(64 * 1024);
     expect(JSON.parse(result.stdout).reports).toHaveLength(3);
+    const closedPipeCode = await new Promise<number|null>(resolve => {
+      const child = spawn(process.execPath, args, { stdio:['ignore','pipe','pipe'] });
+      child.stderr.resume();
+      child.stdout.once('data', () => child.stdout.destroy());
+      child.once('close', resolve);
+    });
+    expect(closedPipeCode).toBe(1);
   } finally { await new Promise<void>(resolve => server.close(() => resolve())); }
 });
