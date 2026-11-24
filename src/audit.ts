@@ -6,6 +6,7 @@
  * unit test.
  */
 
+import type { BaselineComparison } from './baseline.js';
 import { PROBE_VERSION } from './probe/runtime.js';
 import { checkBudget, type BudgetResult } from './budget.js';
 import {
@@ -64,6 +65,8 @@ export interface AuditReport {
   utterances: Utterance[];
   budget?: BudgetResult;
   verdict: Verdict;
+  /** Present only when a baseline was explicitly supplied. */
+  baseline?: BaselineComparison;
 }
 
 const nowIso = (): string => new Date().toISOString();
