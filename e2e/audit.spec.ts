@@ -113,7 +113,7 @@ test('keeps all profile JSON on stdout clean and HTML includes every report', as
 test('drains large all-profile JSON to a pipe before exiting', async () => {
   const server = createServer((_req, res) => {
     res.setHeader('Content-Type', 'text/html');
-    res.end(`<div aria-live="polite" id="status"></div><script>setTimeout(async()=>{window.__livesayProbe?.mark('start');for(let i=0;i<150;i++){document.querySelector('#status').textContent='notice '+i+' '+('sample content '.repeat(30));await new Promise(r=>setTimeout(r,10));}window.__livesayProbe?.mark('done');},200);</script>`);
+    res.end(`<div aria-live="polite" id="status"></div><script>setTimeout(async()=>{window.__livesayProbe?.mark('start');for(let i=0;i<150;i++){document.querySelector('#status').textContent='notice '+i+' '+('sample content '.repeat(1000));await new Promise(r=>setTimeout(r,10));}window.__livesayProbe?.mark('done');},200);</script>`);
   });
   server.listen(0, '127.0.0.1');
   await once(server, 'listening');
@@ -123,13 +123,13 @@ test('drains large all-profile JSON to a pipe before exiting', async () => {
     const result = await new Promise<{code:number|null;stdout:string;stderr:string}>(resolve => {
       const child = spawn(process.execPath, args, { stdio:['ignore','pipe','pipe'] });
       let stdout = '', stderr = '';
-      // Keep the reader paused long enough for the large JSON write to block.
-      child.stdout.pause();
+      // Attach the reader before pausing: Node may resume pipes during child exit.
+      let delayed = false;
       child.stderr.on('data', chunk => { stderr += String(chunk); });
-      child.stdout.once('readable', () => setTimeout(() => {
-        child.stdout.on('data', chunk => { stdout += String(chunk); });
-        child.stdout.resume();
-      }, 300));
+      child.stdout.on('data', chunk => {
+        stdout += String(chunk);
+        if (!delayed) { delayed = true; child.stdout.pause(); setTimeout(() => child.stdout.resume(), 300); }
+      });
       child.once('close', code => resolve({code,stdout,stderr}));
     });
     expect(result.code, result.stderr).toBe(1);
