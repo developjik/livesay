@@ -5,8 +5,8 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-let out: string;
-let server: Server;
+let out: string | undefined;
+let server: Server | undefined;
 let base: string;
 test.beforeAll(async () => {
   out = await mkdtemp(join(tmpdir(), 'livesay-pages-'));
@@ -16,19 +16,22 @@ test.beforeAll(async () => {
     if (!path.startsWith('/livesay/')) { res.writeHead(404); res.end(); return; }
     const file = path.slice('/livesay/'.length) || 'index.html';
     try {
-      const bytes = await readFile(join(out, file));
+      const bytes = await readFile(join(out!, file));
       res.setHeader('Content-Type', file.endsWith('.css') ? 'text/css' : file.endsWith('.js') ? 'text/javascript' : 'text/html');
       res.end(bytes);
     } catch { res.writeHead(404); res.end(); }
   });
-  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+  await new Promise<void>((resolve) => server!.listen(0, '127.0.0.1', resolve));
   const address = server.address();
   if (!address || typeof address === 'string') throw new Error('missing server port');
   base = `http://127.0.0.1:${address.port}/livesay/`;
 });
 test.afterAll(async () => {
-  await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
-  await rm(out, { recursive: true, force: true });
+  try {
+    if (server?.listening) await new Promise<void>((resolve, reject) => server!.close((error) => error ? reject(error) : resolve()));
+  } finally {
+    if (out) await rm(out, { recursive: true, force: true });
+  }
 });
 test('Pages assets, both links and measurements work under a project path', async ({ page }) => {
   const errors: string[] = [];
@@ -40,7 +43,8 @@ test('Pages assets, both links and measurements work under a project path', asyn
     await page.locator(`a.run[href="${href}"]`).click();
     await expect(page).toHaveURL(new URL(href, base).href);
     await expect(page.locator('#answer')).toBeVisible();
-    await page.goto(base);
+    await page.locator('a.brand').click();
+    await expect(page).toHaveURL(base);
   }
   await page.locator('#run-both').click();
   await expect(page.locator('#score-bad')).toContainText('completion no', { timeout: 35000 });
