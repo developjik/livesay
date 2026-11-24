@@ -17,7 +17,7 @@ import { parseArgs } from 'node:util';
 import { audit, VERSION, type AuditReport } from './audit.js';
 import { BudgetError } from './budget.js';
 import { capture } from './capture.js';
-import { renderConsole, renderHtml, renderJson } from './report.js';
+import { renderConsole, renderHtml, renderJson, renderReportsHtml, renderReportsJson, reportsFailed } from './report.js';
 import { startServer } from './server.js';
 import { PROFILES, PROFILE_NAMES, type ProfileName } from './simulate.js';
 
@@ -166,33 +166,35 @@ async function runAudit(argv: string[]): Promise<void> {
   const primary = reports[0]?.report;
   if (!primary) fail('audit produced no report');
 
-  if (profile === 'all') {
-    process.stdout.write(`${comparison(reports)}\n\n`);
+  const jsonStdout = values.json === '-';
+  if (profile === 'all' && !values.quiet) {
+    (jsonStdout ? process.stderr : process.stdout).write(`${comparison(reports)}\n\n`);
   }
 
   if (!values.quiet) {
-    process.stdout.write(`${renderConsole(primary, { color: colorEnabled() })}\n`);
+    (jsonStdout ? process.stderr : process.stdout).write(`${renderConsole(primary, { color: colorEnabled() })}\n`);
   }
 
+  const selectedReports = reports.map(entry => entry.report);
+  const json = profile === 'all' ? renderReportsJson(selectedReports) : renderJson(primary);
+  const html = profile === 'all' ? renderReportsHtml(selectedReports) : renderHtml(primary);
+
   if (values.json) {
-    if (values.json === '-') process.stdout.write(renderJson(primary));
-    else await writeReportFile(values.json, renderJson(primary));
+    if (values.json === '-') process.stdout.write(json);
+    else await writeReportFile(values.json, json);
   }
 
   if (values.html) {
-    await writeReportFile(values.html, renderHtml(primary));
+    await writeReportFile(values.html, html);
   }
 
   if (values.out) {
     const dir = resolve(values.out);
-    await writeReportFile(join(dir, 'report.json'), renderJson(primary));
-    await writeReportFile(join(dir, 'report.html'), renderHtml(primary));
+    await writeReportFile(join(dir, 'report.json'), json);
+    await writeReportFile(join(dir, 'report.html'), html);
   }
 
-  const failed =
-    primary.findings.some((finding) => finding.severity === 'error') ||
-    (primary.budget ? !primary.budget.passed : false) ||
-    (values.strict && primary.findings.some((finding) => finding.severity === 'warn'));
+  const failed = reportsFailed(selectedReports, values.strict);
 
   process.exit(failed ? 1 : 0);
 }
