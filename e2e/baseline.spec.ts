@@ -58,6 +58,7 @@ test('baseline CLI compares live captures and isolated new findings, with readab
     const normalizedInput = join(nested, 'a.json');
     await writeFile(normalizedInput, JSON.stringify(before));
     expect((await runCli(['compare', normalizedInput, a, '--html', `${nested}/alias/../a.json`])).code).toBe(2);
+    expect(await readFile(normalizedInput, 'utf8')).toBe(JSON.stringify(before));
     expect(JSON.parse(await readFile(a, 'utf8')).tool.name).toBe('livesay');
   } finally { await demo.close(); }
 });
