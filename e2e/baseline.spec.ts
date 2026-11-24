@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, writeFile, link } from 'node:fs/promises';
+import { mkdtemp, readFile, writeFile, link, mkdir, symlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, test } from '@playwright/test';
@@ -51,6 +51,34 @@ test('baseline CLI compares live captures and isolated new findings, with readab
     const alias = join(dir, 'hardlink.json');
     await link(a, alias);
     expect((await runCli(['compare', a, a, '--json', alias])).code).toBe(2);
+    const nested = join(dir, 'nested'), elsewhere = join(dir, 'elsewhere', 'inside');
+    await mkdir(nested); await mkdir(elsewhere, { recursive: true });
+    await symlink(elsewhere, join(nested, 'alias'));
+    // writeReportFile normalizes .. before writing, so validation must do too.
+    const normalizedInput = join(nested, 'a.json');
+    await writeFile(normalizedInput, JSON.stringify(before));
+    expect((await runCli(['compare', normalizedInput, a, '--html', `${nested}/alias/../a.json`])).code).toBe(2);
     expect(JSON.parse(await readFile(a, 'utf8')).tool.name).toBe('livesay');
   } finally { await demo.close(); }
+});
+
+test('matches reordered profile sets, gates a secondary failure, and renders only validated comparison fields', async ({ page }) => {
+  const dir = await mkdtemp(join(tmpdir(), 'livesay-baseline-multi-'));
+  const clean = snapshot({ events: [] });
+  const bad = snapshot({ events: tokenBurst(100, 8) });
+  const a = join(dir, 'before.json'), b = join(dir, 'after.json'), html = join(dir, 'multi.html');
+  const before = [audit(clean), audit(clean, { profile: 'spec-strict' })];
+  const after = [audit(bad, { profile: 'spec-strict' }), audit(clean)];
+  // Fields unused by comparison must never become executable audit HTML.
+  const hostile = after.map(report => ({ ...report, verdict: '<script>window.injected=true</script>', utterances: [{ text: '<script>window.injected=true</script>' }] }));
+  await writeFile(a, JSON.stringify({ schema: 'livesay.profiles/v1', reports: before }));
+  await writeFile(b, JSON.stringify({ schema: 'livesay.profiles/v1', reports: hostile }));
+  const result = await runCli(['compare', a, b, '--json', '--html', html]);
+  expect(result.code, result.stderr).toBe(1);
+  const parsed = JSON.parse(result.stdout);
+  expect(parsed.comparisons.map((item: { profile: string; added: unknown[] }) => [item.profile, item.added.length])).toEqual([['spec-strict', 1], ['nvda-like', 0]]);
+  await page.goto(`file://${html}`);
+  expect(await page.evaluate(() => 'injected' in window)).toBe(false);
+  expect(await page.locator('script').count()).toBe(0);
+  await expect(page.getByRole('heading', { name: 'New (1)' })).toBeVisible();
 });
