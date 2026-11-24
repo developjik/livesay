@@ -258,3 +258,7 @@ MIT © jungingwon (developjik)
 ### 전체 프로필 출력
 
 `--profile all`은 선택한 어느 프로필이든 오류나 예산 실패가 있으면 실패합니다. `--strict`는 모든 프로필의 경고도 확인합니다. JSON은 `{ "schema": "livesay.profiles/v1", "reports": [...] }` 형식이며 HTML은 각 프로필의 독립된 보고서 프레임을 포함합니다. 단일 프로필 출력은 유지합니다. `--json -`은 stdout에 JSON만 쓰고 사람용 요약은 stderr로 보냅니다. `--quiet`는 그 요약을 숨깁니다.
+
+## 개발 기준선 (DEV-128)
+
+개발과 CI는 Node.js 22.12.0(`.nvmrc`) 이상을 사용합니다. Vitest 5.1.1의 공식 지원 범위에는 Node 20.19가 없습니다. 실행이 된다는 이유로 공식 지원이라고 부르지 않습니다. 패키지 사용자의 기존 engines는 유지합니다. Node 20 지원 패키지는 테스트 러너 없이 빌드한 tarball의 운영 의존성만 설치하고 CLI/import를 별도로 검사합니다. 개발 TypeScript 기준은 7.0.2입니다.
