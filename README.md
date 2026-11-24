@@ -285,3 +285,73 @@ MIT © jungingwon (developjik)
 ## Development baseline (DEV-128)
 
 Use Node.js 22.12.0 (`.nvmrc`) for development and CI. Vitest 5.1.1 requires Node 22.12+ on its supported release lines; Node 20.19 is outside its declared development support range. It may execute there, but CI does not treat that as supported test-runner usage. This development requirement does not change the package engine declaration. Runtime compatibility must be checked using the built package, separately from the test runner. TypeScript 7.0.2 is the development compiler baseline.
+
+## Baseline regression gates
+
+Keep an audit report from a trusted main-branch run, then gate only newly introduced
+rule/target pairs. Existing findings remain visible; the original audit verdict is
+unchanged, while the exit code uses the baseline result. Warnings require `--strict`
+to fail, just as in a normal audit. A warning escalating to an error is new.
+
+```sh
+livesay audit http://localhost:3000 --json main-report.json
+livesay audit http://localhost:3000 --baseline main-report.json --out reports/
+livesay compare main-report.json reports/report.json --json
+livesay compare main-report.json reports/report.json --html comparison.html
+```
+
+The comparison includes announcements, words/min, updates/s, duplicate, assertive,
+and partial deltas, plus new, resolved, and unchanged findings. A missing rate has
+`null` delta, not zero. Newly failing budget checks also fail the gate; keep the same
+budget in both runs. Absolute metric increases alone do not fail a baseline gate.
+
+Profiles must match exactly. `--profile all` needs a baseline containing exactly the
+same profile set. Tool/probe versions and rule options must also match. Refresh the
+baseline after upgrades. A possibly truncated findings list is refused. Malformed
+reports fail with exit 2, not a passing comparison. Output paths must not overwrite
+input reports, including symlink or hardlink aliases.
+
+Identity is `(rule, target)`: token storms use the region label (not probe-local
+region id), silent lifecycle rules use explicit answer ids, and aggregate rules
+(assertive, duplicate, partial) use the whole recording. Give regions stable unique
+DOM ids and answers stable explicit ids. Changing a label/id appears as a resolution
+plus a new finding. Multiple matching violations collapse to one rule/target pair;
+increasing the count of an existing violation does not become a new violation.
+Timing and sample text do not change identity. This is a simulated announcement
+contract, not a screen reader or WCAG conformance claim.
+
+### PR workflow example
+
+Store `report.json` as an artifact named `livesay-baseline` in a successful main
+workflow. In the PR workflow, download that artifact from a trusted main run (never
+execute scripts from an untrusted artifact). The following audit step runs after
+your application server and browser installation are ready:
+
+```yaml
+- name: Download trusted main baseline
+  uses: actions/download-artifact@<reviewed-full-commit-sha>
+  with:
+    name: livesay-baseline
+    path: baseline
+    run-id: ${{ vars.LIVESAY_TRUSTED_MAIN_RUN_ID }}
+    github-token: ${{ github.token }}
+- name: Gate new announcement failures
+  run: npx --no-install livesay audit http://localhost:3000 --baseline baseline/report.json --out reports
+- name: Keep audit evidence even on gate failure
+  if: always()
+  uses: actions/upload-artifact@<reviewed-full-commit-sha>
+  with:
+    name: livesay-pr
+    path: reports/
+```
+
+Replace the SHA placeholders with reviewed full SHAs before use. Grant the workflow
+`actions: read` to download a different run. Set the trusted main run id explicitly;
+missing baseline artifacts should fail rather than silently skip the gate. Review
+baseline updates as code changes. Do not trust a PR-provided run id or execute this
+through a privileged `pull_request_target` job on untrusted PR code.
+
+Custom completion/abort detection patterns are saved in `rulePatterns` for baseline
+compatibility checks. Older reports without this metadata are interpreted as using
+the built-in defaults, since older JSON discarded RegExp source and flags. Re-record
+old baselines if they were created with custom rules.

@@ -77,3 +77,6 @@ export {
   type DomSinkOptions,
 } from './announcer/sink.js';
 export { splitAtBoundary, takeCompleteSentences, type SplitResult } from './announcer/sentences.js';
+
+export { compareReports, baselineFailed, readAuditReports, type BaselineComparison, type FindingChange, type MetricDelta } from './baseline.js';
+export { renderComparisonConsole, renderComparisonHtml } from './report.js';
