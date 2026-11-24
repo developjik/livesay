@@ -395,9 +395,14 @@ export function renderComparisonConsole(comparison: BaselineComparison): string 
 export function renderBaselineSection(comparison: BaselineComparison): string {
   const rows = comparison.metrics.map(row => `<tr><td>${escapeHtml(row.metric)}</td><td>${fmt(row.before)}</td><td>${fmt(row.after)}</td><td>${fmt(row.delta)}</td></tr>`).join('');
   const groups = ([['New', comparison.added], ['Resolved', comparison.resolved], ['Unchanged', comparison.unchanged]] as const).map(([name, items]) => `<h3>${name} (${items.length})</h3><ul>${items.length ? items.map(item => `<li>${escapeHtml(item.severity)}: ${escapeHtml(item.rule)} / ${escapeHtml(item.target)}</li>`).join('') : '<li>None</li>'}</ul>`).join('');
-  return `<section aria-label="Baseline"><h2>Baseline</h2><p>Profile ${escapeHtml(comparison.profile)}. Baseline findings are still listed in the audit, but only new failures gate this run.</p><p class="target">Before: ${escapeHtml(comparison.baselineUrl)}<br>After: ${escapeHtml(comparison.currentUrl)}</p><div style="overflow-x:auto"><table><thead><tr><th>Metric</th><th>Before</th><th>After</th><th>Delta</th></tr></thead><tbody>${rows}</tbody></table></div>${groups}<p>New budget failures: ${comparison.newBudgetFailures.map(escapeHtml).join(', ') || 'none'}</p></section>`;
+  return `<section aria-label="Baseline" style="overflow-wrap:anywhere"><h2>Baseline</h2><p>Profile ${escapeHtml(comparison.profile)}. Baseline findings are still listed in the audit, but only new failures gate this run.</p><p class="target">Before: ${escapeHtml(comparison.baselineUrl)}<br>After: ${escapeHtml(comparison.currentUrl)}</p><div style="overflow-x:auto"><table><thead><tr><th>Metric</th><th>Before</th><th>After</th><th>Delta</th></tr></thead><tbody>${rows}</tbody></table></div>${groups}<p>New budget failures: ${comparison.newBudgetFailures.map(escapeHtml).join(', ') || 'none'}</p></section>`;
 }
 
 export function renderComparisonHtml(comparison: BaselineComparison): string {
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>livesay baseline comparison</title><style>${CSS}</style></head><body><main class="wrap"><h1>livesay comparison</h1>${renderBaselineSection(comparison)}<footer>Simulated announcement contract, not a WCAG conformance claim.</footer></main></body></html>\n`;
+}
+
+
+export function renderComparisonsHtml(comparisons: BaselineComparison[]): string {
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>livesay baseline comparisons</title><style>${CSS}</style></head><body><main class="wrap"><h1>livesay comparisons</h1>${comparisons.map(renderBaselineSection).join('')}</main></body></html>\n`;
 }
