@@ -3,6 +3,7 @@
  * self-contained HTML transcript that answers "what was said, and when".
  */
 
+import { baselineFailed, type BaselineComparison } from './baseline.js';
 import type { AuditReport } from './audit.js';
 import { formatClock, truncate } from './text.js';
 import type { Utterance } from './types.js';
@@ -99,6 +100,8 @@ export function renderConsole(report: AuditReport, options: { color?: boolean } 
     }
     lines.push('');
   }
+
+  if (report.baseline) lines.push(renderComparisonConsole(report.baseline));
 
   const spoken = report.utterances.slice(0, 8);
   if (spoken.length > 0) {
@@ -343,6 +346,7 @@ export function renderHtml(report: AuditReport): string {
   <div class="findings">${findingHtml}</div>
 
   ${budgetHtml}
+  ${report.baseline ? renderBaselineSection(report.baseline) : ''}
 
   <h2>Utterance timeline <span style="color:var(--faint);letter-spacing:0;text-transform:none">(${report.utterances.length})</span></h2>
   <table>
@@ -363,7 +367,7 @@ export function renderHtml(report: AuditReport): string {
 
 /** Preserve every selected profile while keeping single-report formats stable. */
 export function reportsFailed(reports: AuditReport[], strict = false): boolean {
-  return reports.some(report => report.findings.some(finding => finding.severity === 'error' || (strict && finding.severity === 'warn')) || (report.budget ? !report.budget.passed : false));
+  return reports.some(report => report.baseline ? baselineFailed(report.baseline, strict) : report.findings.some(finding => finding.severity === 'error' || (strict && finding.severity === 'warn')) || (report.budget ? !report.budget.passed : false));
 }
 
 export function renderReportsJson(reports: AuditReport[]): string {
@@ -373,4 +377,27 @@ export function renderReportsJson(reports: AuditReport[]): string {
 export function renderReportsHtml(reports: AuditReport[]): string {
   const sections = reports.map(report => `<section><h2>${escapeHtml(report.profile)}: ${escapeHtml(report.verdict.toUpperCase())}</h2><iframe title="${escapeHtml(report.profile)} audit report" srcdoc="${escapeHtml(renderHtml(report))}"></iframe></section>`).join('\n');
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>livesay: all profiles</title><style>body{margin:0;padding:24px;background:#0e1116;color:#e8eef5;font:16px system-ui}main{max-width:1200px;margin:auto}h1{font-size:28px}h2{font-size:20px}section{margin:24px 0 40px}iframe{width:100%;height:900px;border:1px solid #374151;border-radius:12px;background:white;box-sizing:border-box}</style></head><body><main><h1>livesay: all profiles</h1><p>All selected simulated profiles. Each report keeps its findings, budget and transcript.</p>${sections}</main></body></html>\n`;
+}
+
+
+export function renderComparisonConsole(comparison: BaselineComparison): string {
+  const f = (value: number | null): string => value === null ? 'n/a' : String(value);
+  return [
+    `Baseline (${comparison.profile}): ${comparison.added.length} new, ${comparison.resolved.length} resolved, ${comparison.unchanged.length} unchanged`,
+    ...comparison.metrics.map(row => `${row.metric}: ${f(row.before)} -> ${f(row.after)} (delta ${f(row.delta)})`),
+    ...comparison.added.map(item => `NEW ${item.severity} ${item.rule} ${item.target}`),
+    ...comparison.resolved.map(item => `RESOLVED ${item.rule} ${item.target}`),
+    ...comparison.unchanged.map(item => `UNCHANGED ${item.rule} ${item.target}`),
+    ...comparison.newBudgetFailures.map(item => `NEW budget failure: ${item}`),
+  ].join('\n');
+}
+
+export function renderBaselineSection(comparison: BaselineComparison): string {
+  const rows = comparison.metrics.map(row => `<tr><td>${escapeHtml(row.metric)}</td><td>${fmt(row.before)}</td><td>${fmt(row.after)}</td><td>${fmt(row.delta)}</td></tr>`).join('');
+  const groups = ([['New', comparison.added], ['Resolved', comparison.resolved], ['Unchanged', comparison.unchanged]] as const).map(([name, items]) => `<h3>${name} (${items.length})</h3><ul>${items.length ? items.map(item => `<li>${escapeHtml(item.severity)}: ${escapeHtml(item.rule)} / ${escapeHtml(item.target)}</li>`).join('') : '<li>None</li>'}</ul>`).join('');
+  return `<section aria-label="Baseline"><h2>Baseline</h2><p>Profile ${escapeHtml(comparison.profile)}. Baseline findings are still listed in the audit, but only new failures gate this run.</p><p class="target">Before: ${escapeHtml(comparison.baselineUrl)}<br>After: ${escapeHtml(comparison.currentUrl)}</p><div style="overflow-x:auto"><table><thead><tr><th>Metric</th><th>Before</th><th>After</th><th>Delta</th></tr></thead><tbody>${rows}</tbody></table></div>${groups}<p>New budget failures: ${comparison.newBudgetFailures.map(escapeHtml).join(', ') || 'none'}</p></section>`;
+}
+
+export function renderComparisonHtml(comparison: BaselineComparison): string {
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>livesay baseline comparison</title><style>${CSS}</style></head><body><main class="wrap"><h1>livesay comparison</h1>${renderBaselineSection(comparison)}<footer>Simulated announcement contract, not a WCAG conformance claim.</footer></main></body></html>\n`;
 }
