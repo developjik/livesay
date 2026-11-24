@@ -92,3 +92,17 @@ test('writes a self-contained HTML transcript', async () => {
   expect(contents).toContain('token-storm');
   expect(contents).toContain('<style>');
 });
+
+test('keeps all profile JSON on stdout clean and HTML includes every report', async ({ page }) => {
+  const html = join(workdir, 'all-profiles.html');
+  const result = await runCli(['audit', `${demo.url}/bad.html`, '--profile', 'all', '--json', '-', '--html', html]);
+  expect(result.code, result.stderr).toBe(1);
+  const report = JSON.parse(result.stdout);
+  expect(report.schema).toBe('livesay.profiles/v1');
+  expect(report.reports.map((entry: { profile: string }) => entry.profile)).toEqual(['nvda-like', 'voiceover-like', 'spec-strict']);
+  expect(report.reports.every((entry: { findings: unknown[] }) => entry.findings.length > 0)).toBe(true);
+  await page.goto(`file://${html}`);
+  await expect(page.locator('iframe')).toHaveCount(3);
+  await expect(page.frameLocator('iframe').nth(1).getByRole('heading', { name: /Utterance timeline/ })).toBeVisible();
+  await page.screenshot({ path: '/tmp/livesay-all-profiles.png', fullPage: true });
+});
