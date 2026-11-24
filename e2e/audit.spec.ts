@@ -113,7 +113,7 @@ test('keeps all profile JSON on stdout clean and HTML includes every report', as
 test('drains large all-profile JSON to a pipe before exiting', async () => {
   const server = createServer((_req, res) => {
     res.setHeader('Content-Type', 'text/html');
-    res.end(`<div aria-live="polite" id="status"></div><script>setTimeout(async()=>{window.__livesayProbe?.mark('start');for(let i=0;i<150;i++){document.querySelector('#status').textContent='notice '+i+' '+('sample content '.repeat(30));await new Promise(r=>setTimeout(r,10));}window.__livesayProbe?.mark('done');},200);</script>`);
+    res.end(`<div aria-live="polite" id="status"></div><script>setTimeout(async()=>{window.__livesayProbe?.mark('start');for(let i=0;i<150;i++){document.querySelector('#status').textContent='notice '+i+' '+('sample content '.repeat(1000));await new Promise(r=>setTimeout(r,10));}window.__livesayProbe?.mark('done');},200);</script>`);
   });
   server.listen(0, '127.0.0.1');
   await once(server, 'listening');
