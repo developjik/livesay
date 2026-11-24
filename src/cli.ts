@@ -57,7 +57,7 @@ const colorEnabled = (): boolean => Boolean(process.stdout.isTTY) && !process.en
 
 // `livesay rules | head` should end quietly, not crash on a closed pipe.
 process.stdout.on('error', (error: NodeJS.ErrnoException) => {
-  if (error.code === 'EPIPE') process.exit(0);
+  if (error.code === 'EPIPE') process.exit(typeof process.exitCode === 'number' ? process.exitCode : 0);
 });
 
 function fail(message: string, code = 2): never {
