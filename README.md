@@ -350,3 +350,8 @@ Replace the SHA placeholders with reviewed full SHAs before use. Grant the workf
 missing baseline artifacts should fail rather than silently skip the gate. Review
 baseline updates as code changes. Do not trust a PR-provided run id or execute this
 through a privileged `pull_request_target` job on untrusted PR code.
+
+Custom completion/abort detection patterns are saved in `rulePatterns` for baseline
+compatibility checks. Older reports without this metadata are interpreted as using
+the built-in defaults, since older JSON discarded RegExp source and flags. Re-record
+old baselines if they were created with custom rules.
