@@ -360,3 +360,17 @@ export function renderHtml(report: AuditReport): string {
 </html>
 `;
 }
+
+/** Preserve every selected profile while keeping single-report formats stable. */
+export function reportsFailed(reports: AuditReport[], strict = false): boolean {
+  return reports.some(report => report.findings.some(finding => finding.severity === 'error' || (strict && finding.severity === 'warn')) || (report.budget ? !report.budget.passed : false));
+}
+
+export function renderReportsJson(reports: AuditReport[]): string {
+  return `${JSON.stringify({ schema: 'livesay.profiles/v1', reports }, null, 2)}\n`;
+}
+
+export function renderReportsHtml(reports: AuditReport[]): string {
+  const sections = reports.map(report => `<section><h2>${escapeHtml(report.profile)}: ${escapeHtml(report.verdict.toUpperCase())}</h2><iframe title="${escapeHtml(report.profile)} audit report" srcdoc="${escapeHtml(renderHtml(report))}"></iframe></section>`).join('\n');
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>livesay: all profiles</title><style>body{margin:0;padding:24px;background:#0e1116;color:#e8eef5;font:16px system-ui}main{max-width:1200px;margin:auto}h1{font-size:28px}h2{font-size:20px}section{margin:24px 0 40px}iframe{width:100%;height:900px;border:1px solid #374151;border-radius:12px;background:white;box-sizing:border-box}</style></head><body><main><h1>livesay: all profiles</h1><p>All selected simulated profiles. Each report keeps its findings, budget and transcript.</p>${sections}</main></body></html>\n`;
+}

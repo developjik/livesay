@@ -1,4 +1,7 @@
 import { mkdtemp, readFile } from 'node:fs/promises';
+import { createServer } from 'node:http';
+import { once } from 'node:events';
+import { spawn } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -91,4 +94,55 @@ test('writes a self-contained HTML transcript', async () => {
   expect(contents).toContain('Utterance timeline');
   expect(contents).toContain('token-storm');
   expect(contents).toContain('<style>');
+});
+
+test('keeps all profile JSON on stdout clean and HTML includes every report', async ({ page }) => {
+  const html = join(workdir, 'all-profiles.html');
+  const result = await runCli(['audit', `${demo.url}/bad.html`, '--profile', 'all', '--json', '-', '--html', html]);
+  expect(result.code, result.stderr).toBe(1);
+  const report = JSON.parse(result.stdout);
+  expect(report.schema).toBe('livesay.profiles/v1');
+  expect(report.reports.map((entry: { profile: string }) => entry.profile)).toEqual(['nvda-like', 'voiceover-like', 'spec-strict']);
+  expect(report.reports.every((entry: { findings: unknown[] }) => entry.findings.length > 0)).toBe(true);
+  await page.goto(`file://${html}`);
+  await expect(page.locator('iframe')).toHaveCount(3);
+  await expect(page.frameLocator('iframe').nth(1).getByRole('heading', { name: /Utterance timeline/ })).toBeVisible();
+  await page.screenshot({ path: '/tmp/livesay-all-profiles.png', fullPage: true });
+});
+
+test('drains large all-profile JSON to a pipe before exiting', async () => {
+  const server = createServer((_req, res) => {
+    res.setHeader('Content-Type', 'text/html');
+    res.end(`<div aria-live="polite" id="status"></div><script>setTimeout(async()=>{window.__livesayProbe?.mark('start');for(let i=0;i<150;i++){document.querySelector('#status').textContent='notice '+i+' '+('sample content '.repeat(30));await new Promise(r=>setTimeout(r,10));}window.__livesayProbe?.mark('done');},200);</script>`);
+  });
+  server.listen(0, '127.0.0.1');
+  await once(server, 'listening');
+  try {
+    const address = server.address() as { port: number };
+    const args = ['dist/cli.js', 'audit', `http://127.0.0.1:${address.port}`, '--profile', 'all', '--json', '-', '--quiet'];
+    const result = await new Promise<{code:number|null;stdout:string;stderr:string}>(resolve => {
+      const child = spawn(process.execPath, args, { stdio:['ignore','pipe','pipe'] });
+      let stdout = '', stderr = '';
+      // Keep the reader paused long enough for the large JSON write to block.
+      child.stdout.pause();
+      child.stderr.on('data', chunk => { stderr += String(chunk); });
+      child.stdout.once('readable', () => setTimeout(() => {
+        child.stdout.on('data', chunk => { stdout += String(chunk); });
+        child.stdout.resume();
+      }, 300));
+      child.once('close', code => resolve({code,stdout,stderr}));
+    });
+    expect(result.code, result.stderr).toBe(1);
+    expect(result.stdout.length).toBeGreaterThan(64 * 1024);
+    expect(JSON.parse(result.stdout).reports).toHaveLength(3);
+    const closedPipe = await new Promise<{code:number|null;stderr:string}>(resolve => {
+      const child = spawn(process.execPath, args, { stdio:['ignore','pipe','pipe'] });
+      let stderr = '';
+      child.stderr.on('data', chunk => { stderr += String(chunk); });
+      child.stdout.once('data', () => child.stdout.destroy());
+      child.once('close', code => resolve({code,stderr}));
+    });
+    expect(closedPipe.code, closedPipe.stderr).toBe(1);
+    expect(closedPipe.stderr).not.toMatch(/Unhandled|EPIPE|node:events/);
+  } finally { await new Promise<void>(resolve => server.close(() => resolve())); }
 });
