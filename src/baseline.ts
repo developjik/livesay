@@ -1,4 +1,5 @@
 import type { AuditReport } from './audit.js';
+import { DEFAULT_RULE_OPTIONS } from './rules.js';
 import type { Finding } from './rules.js';
 import { PROFILE_NAMES } from './simulate.js';
 
@@ -34,7 +35,14 @@ function changes(report: AuditReport): Map<string, FindingChange> {
   return map;
 }
 
-const wireOptions = (report: AuditReport): string => JSON.stringify(Object.fromEntries(Object.entries(report.options).sort(([a], [b]) => a.localeCompare(b))));
+const wireOptions = (report: AuditReport): string => {
+  const options = { ...report.options } as Record<string, unknown>;
+  for (const key of ['completionPattern', 'abortPattern'] as const) {
+    const pattern = report.options[key];
+    options[key] = report.rulePatterns?.[key] ?? (pattern instanceof RegExp ? { source: pattern.source, flags: pattern.flags } : { source: DEFAULT_RULE_OPTIONS[key].source, flags: DEFAULT_RULE_OPTIONS[key].flags });
+  }
+  return JSON.stringify(Object.fromEntries(Object.entries(options).sort(([a], [b]) => a.localeCompare(b))));
+};
 
 export function compareReports(before: AuditReport, after: AuditReport): BaselineComparison {
   if (before.profile !== after.profile) throw new Error(`baseline profile mismatch: ${before.profile} vs ${after.profile}`);
@@ -86,10 +94,14 @@ export function readAuditReports(value: unknown): AuditReport[] {
       !record(item.metrics) || !Array.isArray(item.findings) ||
       !['utterances', 'peakUpdatesPerSecond', 'duplicates', 'assertive', 'partials'].every(key => numeric((item.metrics as Record<string, unknown>)[key])) ||
       !(item.metrics.wordsPerMinute === null || numeric(item.metrics.wordsPerMinute)) ||
-      !item.findings.every(finding => record(finding) && ['token-storm','silent-completion','silent-abort','assertive-abuse','duplicate-announcement','partial-announcement'].includes(String(finding.rule)) && typeof finding.title === 'string' && typeof finding.message === 'string' && typeof finding.suggestion === 'string' && ['error', 'warn'].includes(String(finding.severity)) && record(finding.evidence))) {
+      !item.findings.every(finding => record(finding) && ['token-storm','silent-completion','silent-abort','assertive-abuse','duplicate-announcement','partial-announcement'].includes(finding.rule as string) && typeof finding.title === 'string' && typeof finding.message === 'string' && typeof finding.suggestion === 'string' && ['error', 'warn'].includes(finding.severity as string) && record(finding.evidence))) {
       throw new Error('invalid or duplicate livesay audit report in baseline');
     }
-    if (item.budget !== undefined && (!record(item.budget) || typeof item.budget.spec !== 'string' || !Array.isArray(item.budget.checks) || !item.budget.checks.every(check => record(check) && typeof check.ok === 'boolean' && typeof check.expectation === 'string'))) throw new Error('invalid baseline budget');
+    if (item.budget !== undefined && (!record(item.budget) || typeof item.budget.spec !== 'string' || typeof item.budget.passed !== 'boolean' || !Array.isArray(item.budget.checks) || item.budget.checks.length === 0 || !item.budget.checks.every(check => record(check) && typeof check.ok === 'boolean' && typeof check.expectation === 'string') || item.budget.passed !== item.budget.checks.every(check => (check as Record<string, unknown>).ok))) throw new Error('invalid baseline budget');
+    if (item.rulePatterns !== undefined && (!record(item.rulePatterns) || !['completionPattern', 'abortPattern'].every(key => {
+      const pattern = (item.rulePatterns as Record<string, unknown>)[key];
+      return record(pattern) && typeof pattern.source === 'string' && typeof pattern.flags === 'string';
+    }))) throw new Error('invalid baseline rule patterns');
     seen.add(item.profile);
   }
   return raw as AuditReport[];
