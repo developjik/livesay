@@ -254,3 +254,7 @@ npm run test:all      # 전부
 ## 라이선스
 
 MIT © jungingwon (developjik)
+
+### 전체 프로필 출력
+
+`--profile all`은 선택한 어느 프로필이든 오류나 예산 실패가 있으면 실패합니다. `--strict`는 모든 프로필의 경고도 확인합니다. JSON은 `{ "schema": "livesay.profiles/v1", "reports": [...] }` 형식이며 HTML은 각 프로필의 독립된 보고서 프레임을 포함합니다. 단일 프로필 출력은 유지합니다. `--json -`은 stdout에 JSON만 쓰고 사람용 요약은 stderr로 보냅니다. `--quiet`는 그 요약을 숨깁니다.
