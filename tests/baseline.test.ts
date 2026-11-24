@@ -73,3 +73,18 @@ describe('baseline regression gate', () => {
     expect(() => readAuditReports({ schema: 'livesay.profiles/v1', reports: [report(), report()] })).toThrow(/duplicate/);
   });
 });
+
+it('persists non-default detector regexes and rejects changed patterns', () => {
+  const recording = snapshot({ events: [] });
+  const before = audit(recording, { rules: { completionPattern: /custom-complete/i } });
+  const saved = readAuditReports(JSON.parse(renderJson(before)))[0]!;
+  expect(compareReports(saved, before).added).toHaveLength(0);
+  expect(() => compareReports(saved, audit(recording))).toThrow(/options/);
+});
+it('does not coerce finding enums or accept inconsistent budget results', () => {
+  const valid = report();
+  expect(() => readAuditReports({ ...valid, findings: [{ ...valid.findings[0], severity: ['error'] }] })).toThrow();
+  expect(() => readAuditReports({ ...valid, findings: [{ ...valid.findings[0], rule: ['token-storm'] }] })).toThrow();
+  expect(() => readAuditReports({ ...valid, budget: { spec: 'no-errors', passed: false, checks: [] } })).toThrow();
+  expect(() => readAuditReports({ ...valid, budget: { spec: 'no-errors', passed: false, checks: [{ expectation: 'no-errors', ok: true }] } })).toThrow();
+});
