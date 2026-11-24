@@ -281,3 +281,7 @@ MIT © jungingwon (developjik)
 ### All-profile output
 
 `--profile all` fails when any selected profile has errors or a failed budget. `--strict` checks warnings in every profile. JSON output uses `{ "schema": "livesay.profiles/v1", "reports": [...] }` and HTML contains each profile in its own transcript frame. Single-profile output is unchanged. With `--json -`, stdout is only JSON and human summaries go to stderr; `--quiet` suppresses those summaries.
+
+## Development baseline (DEV-128)
+
+Use Node.js 22.12.0 (`.nvmrc`) for development and CI. Vitest 5.1.1 requires Node 22.12+ on its supported release lines; Node 20.19 is outside its declared development support range. It may execute there, but CI does not treat that as supported test-runner usage. This development requirement does not change the package engine declaration. Runtime compatibility must be checked using the built package, separately from the test runner. TypeScript 7.0.2 is the development compiler baseline.
